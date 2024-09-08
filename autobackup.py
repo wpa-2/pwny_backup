@@ -30,8 +30,9 @@ class autobackup(plugins.Plugin):
                 logging.error(f"AUTO-BACKUP: Option {opt} is not set.")
                 return
 
-        # Remote backup is optional, check if it's set
+        # Log to check if remote_backup is being read
         if 'remote_backup' in self.options and self.options['remote_backup']:
+            logging.info(f"AUTO_BACKUP: Remote backup configuration: {self.options.get('remote_backup', None)}")
             logging.info("AUTO_BACKUP: Remote backup is configured.")
         else:
             logging.info("AUTO_BACKUP: Remote backup is not configured. Only local backups will be performed.")
@@ -138,4 +139,3 @@ class autobackup(plugins.Plugin):
         except OSError as os_e:
             self.tries += 1
             logging.error(f"AUTO_BACKUP: Error: {os_e}")
-
