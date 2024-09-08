@@ -24,14 +24,19 @@ class autobackup(plugins.Plugin):
         logging.info(f"AUTO-BACKUP: Full loaded configuration: {self.options}")
 
         # Required options (local backup path and interval)
-        required_options = ['interval', 'local_backup_path']
+        required_options = ['interval', 'local_backup_path', 'remote_backup']
         for opt in required_options:
-            if opt not in self.options or not self.options[opt]:
-                logging.error(f"AUTO-BACKUP: Option {opt} is not set.")
-                return
+            if opt not in self.options:
+                logging.warning(f"AUTO-BACKUP: Option {opt} is not set.")
+                # Initialize default values to ensure they are not removed
+                if opt == 'remote_backup':
+                    self.options['remote_backup'] = None
+                else:
+                    logging.error(f"AUTO-BACKUP: Required option {opt} is not set.")
+                    return
 
         # Log to check if remote_backup is being read
-        if 'remote_backup' in self.options and self.options['remote_backup']:
+        if self.options['remote_backup']:
             logging.info(f"AUTO_BACKUP: Remote backup configuration: {self.options.get('remote_backup', None)}")
             logging.info("AUTO_BACKUP: Remote backup is configured.")
         else:
@@ -123,7 +128,7 @@ class autobackup(plugins.Plugin):
             logging.info(f"AUTO_BACKUP: Backup created successfully at {local_backup_path}")
 
             # Check if remote backup is configured and not empty
-            if 'remote_backup' in self.options and self.options['remote_backup']:
+            if self.options['remote_backup']:
                 try:
                     # Extract the server and SSH key from the combined remote_backup option
                     server_address, ssh_key = self.options['remote_backup'].split(',')
