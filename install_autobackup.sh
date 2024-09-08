@@ -50,7 +50,11 @@ read -p "Do you want to enable remote backups? (y/n): " ENABLE_REMOTE
 
 if [[ "$ENABLE_REMOTE" == "y" || "$ENABLE_REMOTE" == "Y" ]]; then
     # Prompt for remote backup information
-    read -p "Enter the remote backup information (e.g., user@remotehost:/path/to/backup): " REMOTE_BACKUP
+    read -p "Enter the remote backup path (e.g., user@remotehost:/path/to/backup): " REMOTE_BACKUP
+    read -p "Enter the path to the SSH key to use for remote backups (default: $SSH_KEY_PATH): " INPUT_SSH_KEY_PATH
+
+    # Use the provided SSH key path or default
+    SSH_KEY_PATH=${INPUT_SSH_KEY_PATH:-$SSH_KEY_PATH}
 
     # Validate the remote backup format
     if [[ ! "$REMOTE_BACKUP" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+:[a-zA-Z0-9/_-]+$ ]]; then
@@ -67,7 +71,7 @@ if [[ "$ENABLE_REMOTE" == "y" || "$ENABLE_REMOTE" == "Y" ]]; then
 
     sudo -u $SUDO_USER ssh -i $SSH_KEY_PATH -o BatchMode=yes -o ConnectTimeout=5 $REMOTE_USER@$REMOTE_HOST "echo SSH connection successful!" > /dev/null 2>&1
 
-    if [ $? -eq 0 ];then
+    if [ $? -eq 0 ]; then
         echo "SSH connection to $REMOTE_USER@$REMOTE_HOST was successful."
     else
         echo "Error: SSH connection to $REMOTE_USER@$REMOTE_HOST failed. Please verify the SSH key and remote server details."
