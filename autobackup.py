@@ -21,13 +21,20 @@ class autobackup(plugins.Plugin):
         self.status = StatusFile('/root/.auto-backup')
 
     def on_loaded(self):
-        logging.info(f"AUTO-BACKUP: Full loaded configuration: {self.options}")
+        logging.info(f"AUTO-BACKUP: Fully loaded configuration: {self.options}")
 
-        required_options = ['interval', 'local_backup_path', 'remote_backup']
+        # Required options (local backup path and interval)
+        required_options = ['interval', 'local_backup_path']
         for opt in required_options:
             if opt not in self.options or not self.options[opt]:
                 logging.error(f"AUTO-BACKUP: Option {opt} is not set.")
                 return
+
+        # Remote backup is optional, check if it's set
+        if 'remote_backup' in self.options and self.options['remote_backup']:
+            logging.info("AUTO_BACKUP: Remote backup is configured.")
+        else:
+            logging.info("AUTO_BACKUP: Remote backup is not configured. Only local backups will be performed.")
 
         # Start the time-based backup thread
         backup_interval = self.options.get('interval', 1) * 3600  # Default to 1 hour if not set
@@ -114,7 +121,7 @@ class autobackup(plugins.Plugin):
 
             logging.info(f"AUTO_BACKUP: Backup created successfully at {local_backup_path}")
 
-            # Send the backup to the server using rsync if remote_backup is configured
+            # Check if remote backup is configured and not empty
             if 'remote_backup' in self.options and self.options['remote_backup']:
                 try:
                     # Extract the server and SSH key from the combined remote_backup option
