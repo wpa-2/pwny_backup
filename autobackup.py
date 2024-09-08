@@ -21,7 +21,7 @@ class autobackup(plugins.Plugin):
         self.status = StatusFile('/root/.auto-backup')
 
     def on_loaded(self):
-        logging.info(f"AUTO-BACKUP: Fully loaded configuration: {self.options}")
+        logging.info(f"AUTO-BACKUP: Full loaded configuration: {self.options}")
 
         # Required options (local backup path and interval)
         required_options = ['interval', 'local_backup_path']
@@ -138,3 +138,4 @@ class autobackup(plugins.Plugin):
         except OSError as os_e:
             self.tries += 1
             logging.error(f"AUTO_BACKUP: Error: {os_e}")
+
