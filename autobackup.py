@@ -10,7 +10,7 @@ import threading
 import time
 
 class autobackup(plugins.Plugin):
-    __author__ = 'Your Name'
+    __author__ = 'WPA2'
     __version__ = '2.1.0'
     __license__ = 'GPL3'
     __description__ = 'This plugin backs up files using the hostname for the backup filename and supports local and remote backups using rsync.'
