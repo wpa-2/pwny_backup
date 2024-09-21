@@ -34,6 +34,9 @@ Host github.com
     User git
     IdentityFile ~/.ssh/pwnagotchi_backup_key
 ```
+
+`eval "$(ssh-agent -s)"`
+`ssh-add ~/.ssh/pwnagotchi_backup_key`
 `ssh -T git@github.com`
 Result should be 
 `Hi wpa-2! You've successfully authenticated, but GitHub does not provide shell access.`
@@ -114,8 +117,9 @@ If you encounter issues, please open an issue on the [GitHub repository](https:/
 
 - **Permissions:** Ensure the SSH key file has the correct permissions:
 ```
-  chmod 600 ~/.ssh/pwnagotchi_backup_key
-   chmod 644 ~/.ssh/pwnagotchi_backup_key.pub
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/pwnagotchi_backup_key
+chmod 644 ~/.ssh/pwnagotchi_backup_key.pub
 ```
 
 - **Logs:** Check the Pwnagotchi logs for any errors or issues with the backup process:  
