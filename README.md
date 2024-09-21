@@ -26,6 +26,8 @@ To perform remote backups, you’ll need to create an SSH key that the Pwnagotch
 
 ### Step 2: Set Up SSH Key for GitHub
 Add the SSH key (`~/.ssh/pwnagotchi_backup_key.pub`) to your GitHub account under Settings > SSH and GPG keys.
+
+Then
 `nano ~/.ssh/config`
 
 ```
@@ -34,6 +36,8 @@ Host github.com
     User git
     IdentityFile ~/.ssh/pwnagotchi_backup_key
 ```
+
+And finally run these commands
 
 ```
 eval "$(ssh-agent -s)"
