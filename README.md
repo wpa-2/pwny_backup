@@ -64,7 +64,7 @@ During the installation, you'll be prompted to enter:
 
 Autobackup Plugin Configuration
 ```
-main.plugins.autobackup.github_repo = "git@github.com:YOU/YOUR.git"
+main.plugins.autobackup.github_repo = "git@github.com:username/repository.git"
 main.plugins.autobackup.github_backup_dir = "Backups"
 main.plugins.autobackup.remote_backup = "user@LOCALIP:/path/to/folder/,/home/pi/.ssh/pwnagotchi_backup_key"
 main.plugins.autobackup.enabled = true
