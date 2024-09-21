@@ -147,11 +147,17 @@ main.plugins.autobackup.max_tries = 3
 main.plugins.autobackup.local_backup_path = \"$LOCAL_BACKUP_PATH\"
 EOL"
 
+# Get the device hostname
+DEVICE_HOSTNAME=$(hostname)
+
+# Create a backup filename using the hostname
+BACKUP_FILENAME="${DEVICE_HOSTNAME}-backup.tar.gz"
+
 # Create symlink for GitHub backup, overwrite if it exists
-if [ -L "$LOCAL_BACKUP_PATH/$GITHUB_BACKUP_DIR/pwnytest-backup.tar.gz" ]; then
-    rm "$LOCAL_BACKUP_PATH/$GITHUB_BACKUP_DIR/pwnytest-backup.tar.gz"
+if [ -L "$LOCAL_BACKUP_PATH/$GITHUB_BACKUP_DIR/$BACKUP_FILENAME" ]; then
+    rm "$LOCAL_BACKUP_PATH/$GITHUB_BACKUP_DIR/$BACKUP_FILENAME"
 fi
-ln -s "$LOCAL_BACKUP_PATH/pwnytest-backup.tar.gz" "$LOCAL_BACKUP_PATH/$GITHUB_BACKUP_DIR/pwnytest-backup.tar.gz"
+ln -s "$LOCAL_BACKUP_PATH/$BACKUP_FILENAME" "$LOCAL_BACKUP_PATH/$GITHUB_BACKUP_DIR/$BACKUP_FILENAME"
 
 # Finished
 echo "Configuration update complete."
