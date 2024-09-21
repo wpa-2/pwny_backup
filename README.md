@@ -35,11 +35,14 @@ Host github.com
     IdentityFile ~/.ssh/pwnagotchi_backup_key
 ```
 
-`eval "$(ssh-agent -s)"`
-`ssh-add ~/.ssh/pwnagotchi_backup_key`
-`ssh -T git@github.com`
+```
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/pwnagotchi_backup_key
+ssh -T git@github.com
+```
+
 Result should be 
-`Hi wpa-2! You've successfully authenticated, but GitHub does not provide shell access.`
+`Hi USERNAME! You've successfully authenticated, but GitHub does not provide shell access.`
 
 
 
