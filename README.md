@@ -107,7 +107,9 @@ If you encounter issues, please open an issue on the [GitHub repository](https:/
   ## Known issues
   
 Some times this shows as an error (not really an issue if your using pwny a lot and its not sat in manu mode)
+
 `14:21:43 [ERROR] AUTO_BACKUP: Git command 'cd /home/pi/backup/Backups && git commit -m 'Backup on 2024-09-21 14:21:43.157731'' failed with exit code 1`
+
 Just means the backup hasnt changed and theres nothing new to upload, i need to fix that at some point. 
  
 
