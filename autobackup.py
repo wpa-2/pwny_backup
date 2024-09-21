@@ -33,11 +33,6 @@ class autobackup(plugins.Plugin):
                     logging.error(f"AUTO-BACKUP: Required option {opt} is not set.")
                     return
 
-        if self.options['remote_backup']:
-            logging.info(f"AUTO_BACKUP: Remote backup configuration: {self.options.get('remote_backup', None)}")
-        else:
-            logging.info("AUTO_BACKUP: Remote backup is not configured. Only local backups will be performed.")
-
         backup_interval = self.options.get('interval', 1) * 3600
         self.backup_thread = threading.Thread(target=self.schedule_backup, args=(backup_interval,), daemon=True)
         self.backup_thread.start()
@@ -83,6 +78,7 @@ class autobackup(plugins.Plugin):
 
         hostname = socket.gethostname()
         backup_filename = f"{hostname}-backup.tar.gz"
+        local_backup_path = os.path.join(self.options['local_backup_path'], backup_filename)
 
         valid_files = [f for f in files_to_backup if os.path.exists(f)]
         if not valid_files:
@@ -91,8 +87,6 @@ class autobackup(plugins.Plugin):
 
         try:
             logging.info("AUTO_BACKUP: Backing up ...")
-            local_backup_path = os.path.join(self.options['local_backup_path'], backup_filename)
-
             tar_command = f"tar --exclude='/etc/pwnagotchi/log/pwnagotchi.log' -czvf {local_backup_path} {' '.join(valid_files)}"
             logging.info(f"AUTO_BACKUP: Running tar command: {tar_command}")
 
@@ -103,10 +97,39 @@ class autobackup(plugins.Plugin):
 
             logging.info(f"AUTO_BACKUP: Backup created successfully at {local_backup_path}")
 
-            if self.options['remote_backup']:
+            # GitHub integration: Prepare the backup path
+            github_backup_dir = self.options.get('github_backup_dir', 'Backups')
+            github_backup_path = os.path.join(self.options['local_backup_path'], github_backup_dir)
+
+            if not os.path.exists(github_backup_path):
+                os.makedirs(github_backup_path)
+
+            # Move the backup file to the configured backup directory, overwriting if exists
+            final_backup_path = os.path.join(github_backup_path, backup_filename)
+            os.replace(local_backup_path, final_backup_path)
+
+            # Run Git commands
+            git_commands = [
+                f"cd {github_backup_path} && git add -f {backup_filename}",
+                f"cd {github_backup_path} && git commit -m 'Backup on {datetime.now()}'",
+                f"cd {github_backup_path} && git push --force origin main"
+            ]
+
+            for cmd in git_commands:
+                logging.info(f"AUTO_BACKUP: Running Git command as user pi: {cmd}")
+                result = subprocess.run(f"sudo -u pi bash -c \"{cmd}\"", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                logging.info(f"Git stdout: {result.stdout.decode()}")
+                logging.info(f"Git stderr: {result.stderr.decode()}")
+
+                if result.returncode != 0:
+                    logging.error(f"AUTO_BACKUP: Git command '{cmd}' failed with exit code {result.returncode}")
+                    return
+
+            # Optionally, continue with rsync for remote backup
+            if self.options.get('remote_backup'):
                 try:
                     server_address, ssh_key = self.options['remote_backup'].split(',')
-                    rsync_command = f"rsync -avz -e 'ssh -i {ssh_key} -o StrictHostKeyChecking=no' {local_backup_path} {server_address}/"
+                    rsync_command = f"rsync -avz -e 'ssh -i {ssh_key} -o StrictHostKeyChecking=no' {final_backup_path} {server_address}/"
                     logging.info(f"AUTO_BACKUP: Sending backup to server using rsync: {rsync_command}")
                     result = subprocess.run(rsync_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     if result.returncode == 0:
@@ -117,6 +140,7 @@ class autobackup(plugins.Plugin):
                     logging.error("AUTO_BACKUP: Incorrect remote backup configuration format.")
                 except subprocess.CalledProcessError as e:
                     logging.error(f"AUTO_BACKUP: Failed to send backup to server using rsync. Error: {e}")
+
         except OSError as os_e:
             self.tries += 1
             logging.error(f"AUTO_BACKUP: Error: {os_e}")

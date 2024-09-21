@@ -6,7 +6,7 @@ SSH_KEY_PATH="$USER_HOME/.ssh/pwnagotchi_backup_key"
 CONFIG_FILE="/etc/pwnagotchi/config.toml"
 PLUGIN_DIR="/usr/local/share/pwnagotchi/custom-plugins"
 AUTOBACKUP_SCRIPT="$PLUGIN_DIR/autobackup.py"
-AUTOBACKUP_URL="https://github.com/wpa-2/pwny_backup/raw/main/autobackup.py"
+AUTOBACKUP_URL="https://raw.githubusercontent.com/wpa-2/pwny_backup/refs/heads/Test/autobackup.py"
 
 # Ensure the script is run with sudo
 if [ -z "$SUDO_USER" ]; then
@@ -32,7 +32,7 @@ else
 fi
 
 # Prompt for local backup path and set default if empty
-read -p "Enter the local backup path (e.g., $USER_HOME/backup/): " LOCAL_BACKUP_PATH
+read -p "Enter the local backup path (e.g., /home/pi/backup/): " LOCAL_BACKUP_PATH
 LOCAL_BACKUP_PATH=${LOCAL_BACKUP_PATH:-"$USER_HOME/backup/"}
 
 # Check if the local backup directory exists, if not create it
@@ -45,41 +45,84 @@ if [ ! -d "$LOCAL_BACKUP_PATH" ]; then
     fi
 fi
 
-# Prompt to enable remote backups
-read -p "Do you want to enable remote backups? (y/n): " ENABLE_REMOTE
+# Fix ownership of the backup directory
+echo "Fixing ownership of the local backup directory..."
+sudo chown -R $SUDO_USER:$SUDO_USER "$LOCAL_BACKUP_PATH"
+sudo chmod -R 755 "$LOCAL_BACKUP_PATH"
+
+# Prompt to enable GitHub backups
+read -p "Would you like to set up GitHub backups? (y/n): " ENABLE_GITHUB
+
+if [[ "$ENABLE_GITHUB" == "y" || "$ENABLE_GITHUB" == "Y" ]]; then
+    read -p "Enter the GitHub repository URL (e.g., git@github.com:username/repository.git): " GITHUB_REPO
+    read -p "Enter the GitHub directory where backups will be saved (e.g., Backups): " GITHUB_BACKUP_DIR
+
+    # Test GitHub SSH connection
+    echo "Testing SSH connection to GitHub..."
+    sudo -u $SUDO_USER ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to authenticate with GitHub using the SSH key. Please ensure your SSH key is added to GitHub."
+        exit 1
+    else
+        echo "GitHub authentication successful!"
+    fi
+
+    # Clone the GitHub repository as the pi user
+    echo "Cloning GitHub repository into $LOCAL_BACKUP_PATH..."
+    sudo -u $SUDO_USER git clone $GITHUB_REPO "$LOCAL_BACKUP_PATH"
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to clone GitHub repository."
+        exit 1
+    fi
+
+    # Mark the repository as safe for Git
+    sudo -u $SUDO_USER git config --global --add safe.directory $LOCAL_BACKUP_PATH
+
+    # Set Git user email and name for the pi user
+    read -p "Enter Git user name for commits: " GIT_USER_NAME
+    read -p "Enter Git user email for commits: " GIT_USER_EMAIL
+
+    sudo -u $SUDO_USER git config --global user.name "$GIT_USER_NAME"
+    sudo -u $SUDO_USER git config --global user.email "$GIT_USER_EMAIL"
+
+    # Update the configuration file for GitHub backups
+    echo "Configuring GitHub backup in Pwnagotchi settings..."
+    sudo sed -i "/main.plugins.autobackup.github_repo/d" $CONFIG_FILE
+    sudo sed -i "/main.plugins.autobackup.github_backup_dir/d" $CONFIG_FILE
+    sudo bash -c "cat <<EOL >> $CONFIG_FILE
+main.plugins.autobackup.github_repo = \"$GITHUB_REPO\"
+main.plugins.autobackup.github_backup_dir = \"$GITHUB_BACKUP_DIR\"
+EOL"
+fi
+
+# Prompt to enable remote server backups
+read -p "Would you like to set up a local server backup using rsync? (y/n): " ENABLE_REMOTE
 
 if [[ "$ENABLE_REMOTE" == "y" || "$ENABLE_REMOTE" == "Y" ]]; then
-    # Prompt for remote backup information
     read -p "Enter the remote backup path (e.g., user@remotehost:/path/to/backup): " REMOTE_BACKUP
     read -p "Enter the path to the SSH key to use for remote backups (default: $SSH_KEY_PATH): " INPUT_SSH_KEY_PATH
 
     # Use the provided SSH key path or default
     SSH_KEY_PATH=${INPUT_SSH_KEY_PATH:-$SSH_KEY_PATH}
 
-    # Validate the remote backup format
-    if [[ ! "$REMOTE_BACKUP" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+:[a-zA-Z0-9/_-]+$ ]]; then
-        echo "Error: Invalid remote backup format."
-        exit 1
-    fi
-
-    # Extract the remote username and host for SSH connection test
+    # Test SSH connection to the remote server
+    echo "Testing SSH connection to $REMOTE_BACKUP..."
     REMOTE_USER=$(echo "$REMOTE_BACKUP" | cut -d'@' -f1)
     REMOTE_HOST=$(echo "$REMOTE_BACKUP" | cut -d'@' -f2 | cut -d':' -f1)
-
-    # Test SSH connection to the remote server using the key
-    echo "Testing SSH connection to $REMOTE_USER@$REMOTE_HOST using key $SSH_KEY_PATH..."
-
     sudo -u $SUDO_USER ssh -i $SSH_KEY_PATH -o BatchMode=yes -o ConnectTimeout=5 $REMOTE_USER@$REMOTE_HOST "echo SSH connection successful!" > /dev/null 2>&1
-
     if [ $? -eq 0 ]; then
         echo "SSH connection to $REMOTE_USER@$REMOTE_HOST was successful."
     else
         echo "Error: SSH connection to $REMOTE_USER@$REMOTE_HOST failed. Please verify the SSH key and remote server details."
         exit 1
     fi
-else
-    REMOTE_BACKUP="user@remotehost:/path/to/backup"
-    echo "Remote backups are disabled. Adding commented remote backup line."
+
+    # Update the configuration file for remote backups
+    echo "Configuring remote server backup in Pwnagotchi settings..."
+    sudo sed -i "/main.plugins.autobackup.remote_backup/d" $CONFIG_FILE
+    sudo bash -c "cat <<EOL >> $CONFIG_FILE
+main.plugins.autobackup.remote_backup = \"$REMOTE_BACKUP,$SSH_KEY_PATH\"
+EOL"
 fi
 
 # Download the autobackup.py script
@@ -92,34 +135,24 @@ chmod +x $AUTOBACKUP_SCRIPT
 echo "autobackup.py installed to $PLUGIN_DIR."
 
 # Remove existing autobackup configuration to avoid duplicates
-sudo sed -i "/main.plugins.autobackup.remote_backup/d" $CONFIG_FILE
+sudo sed -i "/main.plugins.autobackup.local_backup_path/d" $CONFIG_FILE
+sudo sed -i "/main.plugins.autobackup.interval/d" $CONFIG_FILE
 
-# Check if configuration already exists and append only if necessary
-if ! grep -q "main.plugins.autobackup.enabled" $CONFIG_FILE; then
-    echo "Updating $CONFIG_FILE with autobackup configuration..."
-
-    sudo bash -c "cat <<EOL >> $CONFIG_FILE
-
-# Autobackup Plugin Configuration
+# Append local backup configuration
+echo "Updating Pwnagotchi configuration..."
+sudo bash -c "cat <<EOL >> $CONFIG_FILE
 main.plugins.autobackup.enabled = true
 main.plugins.autobackup.interval = 1  # Backup every 1 hour
 main.plugins.autobackup.max_tries = 3
 main.plugins.autobackup.local_backup_path = \"$LOCAL_BACKUP_PATH\"
 EOL"
 
-    # Add remote backup details (either commented or active based on selection)
-    if [[ "$ENABLE_REMOTE" == "y" || "$ENABLE_REMOTE" == "Y" ]]; then
-        sudo bash -c "cat <<EOL >> $CONFIG_FILE
-main.plugins.autobackup.remote_backup = \"$REMOTE_BACKUP,$SSH_KEY_PATH\"
-EOL"
-    else
-        sudo bash -c "cat <<EOL >> $CONFIG_FILE
-# main.plugins.autobackup.remote_backup = \"$REMOTE_BACKUP,$SSH_KEY_PATH\"
-EOL"
-    fi
-else
-    echo "Autobackup configuration already exists in $CONFIG_FILE."
+# Create symlink for GitHub backup, overwrite if it exists
+if [ -L "$LOCAL_BACKUP_PATH/$GITHUB_BACKUP_DIR/pwnytest-backup.tar.gz" ]; then
+    rm "$LOCAL_BACKUP_PATH/$GITHUB_BACKUP_DIR/pwnytest-backup.tar.gz"
 fi
+ln -s "$LOCAL_BACKUP_PATH/pwnytest-backup.tar.gz" "$LOCAL_BACKUP_PATH/$GITHUB_BACKUP_DIR/pwnytest-backup.tar.gz"
 
 # Finished
 echo "Configuration update complete."
+echo "Autobackup plugin installed and configured. You can now restart Pwnagotchi to apply changes."
