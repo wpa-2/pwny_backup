@@ -117,16 +117,27 @@ class autobackup(plugins.Plugin):
             shutil.copy(local_backup_path, final_backup_path)
             self.git_setup(github_backup_path, backup_filename)
 
+            # Check if directory exists on GitHub
+            if self.check_github_directory_exists(github_backup_dir):
+                self.run_git_commands(github_backup_path, backup_filename)
+
+    def check_github_directory_exists(self, github_backup_dir):
+        try:
+            check_command = f"git ls-remote --exit-code {self.options['github_repo']} refs/heads/main"
+            result = subprocess.run(check_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            return result.returncode == 0
+        except Exception as e:
+            logging.error(f"AUTO_BACKUP: Error checking GitHub directory: {str(e)}")
+            return False
+
     def git_setup(self, github_backup_path, backup_filename):
         os.makedirs(os.path.join(github_backup_path, '.git', 'info'), exist_ok=True)
-        
+
         with open(os.path.join(github_backup_path, '.git', 'info', 'sparse-checkout'), 'w') as sparse_file:
             sparse_file.write(f"{self.options.get('github_backup_dir', 'Backups')}/*\n")
-        
+
         subprocess.run(f"git config core.sparseCheckout true", cwd=github_backup_path, shell=True)
         subprocess.run(f"git read-tree -mu HEAD", cwd=github_backup_path, shell=True)
-
-        self.run_git_commands(github_backup_path, backup_filename)
 
     def run_git_commands(self, github_backup_path, backup_filename):
         git_commands = [
