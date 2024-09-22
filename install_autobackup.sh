@@ -6,7 +6,7 @@ SSH_KEY_PATH="$USER_HOME/.ssh/pwnagotchi_backup_key"
 CONFIG_FILE="/etc/pwnagotchi/config.toml"
 PLUGIN_DIR="/usr/local/share/pwnagotchi/custom-plugins"
 AUTOBACKUP_SCRIPT="$PLUGIN_DIR/autobackup.py"
-AUTOBACKUP_URL="https://raw.githubusercontent.com/wpa-2/pwny_backup/refs/heads/main/autobackup.py"
+AUTOBACKUP_URL="https://raw.githubusercontent.com/wpa-2/pwny_backup/refs/heads/Testing/autobackup.py"
 
 # Ensure the script is run with sudo
 if [ -z "$SUDO_USER" ]; then
@@ -67,23 +67,32 @@ if [[ "$ENABLE_GITHUB" == "y" || "$ENABLE_GITHUB" == "Y" ]]; then
         echo "GitHub authentication successful!"
     fi
 
-    # Clone the GitHub repository as the pi user
-    echo "Cloning GitHub repository into $LOCAL_BACKUP_PATH..."
-    sudo -u $SUDO_USER git clone $GITHUB_REPO "$LOCAL_BACKUP_PATH"
-    if [ $? -ne 0 ]; then
-        echo "Error: Failed to clone GitHub repository."
-        exit 1
+    # Clone the GitHub repository if it doesn't already exist
+    if [ ! -d "$LOCAL_BACKUP_PATH/.git" ]; then
+        echo "Cloning GitHub repository into $LOCAL_BACKUP_PATH..."
+        sudo -u $SUDO_USER git clone $GITHUB_REPO "$LOCAL_BACKUP_PATH"
+        if [ $? -ne 0 ]; then
+            echo "Error: Failed to clone GitHub repository."
+            exit 1
+        fi
+
+        # Mark the repository as safe for Git
+        sudo -u $SUDO_USER git config --global --add safe.directory $LOCAL_BACKUP_PATH
+
+        # Set Git user email and name for the pi user
+        read -p "Enter Git user name for commits: " GIT_USER_NAME
+        read -p "Enter Git user email for commits: " GIT_USER_EMAIL
+
+        sudo -u $SUDO_USER git config --global user.name "$GIT_USER_NAME"
+        sudo -u $SUDO_USER git config --global user.email "$GIT_USER_EMAIL"
     fi
 
-    # Mark the repository as safe for Git
-    sudo -u $SUDO_USER git config --global --add safe.directory $LOCAL_BACKUP_PATH
-
-    # Set Git user email and name for the pi user
-    read -p "Enter Git user name for commits: " GIT_USER_NAME
-    read -p "Enter Git user email for commits: " GIT_USER_EMAIL
-
-    sudo -u $SUDO_USER git config --global user.name "$GIT_USER_NAME"
-    sudo -u $SUDO_USER git config --global user.email "$GIT_USER_EMAIL"
+    # Configure sparse checkout for the specified directory
+    echo "Configuring sparse checkout..."
+    sudo -u $SUDO_USER bash -c "cd $LOCAL_BACKUP_PATH && git config core.sparseCheckout true && echo '$GITHUB_BACKUP_DIR/*' > .git/info/sparse-checkout"
+    
+    # Pull the specified folder from the repository
+    sudo -u $SUDO_USER bash -c "cd $LOCAL_BACKUP_PATH && git pull origin main"
 
     # Update the configuration file for GitHub backups
     echo "Configuring GitHub backup in Pwnagotchi settings..."
@@ -146,18 +155,6 @@ main.plugins.autobackup.interval = 1  # Backup every 1 hour
 main.plugins.autobackup.max_tries = 3
 main.plugins.autobackup.local_backup_path = \"$LOCAL_BACKUP_PATH\"
 EOL"
-
-# Get the device hostname
-DEVICE_HOSTNAME=$(hostname)
-
-# Create a backup filename using the hostname
-BACKUP_FILENAME="${DEVICE_HOSTNAME}-backup.tar.gz"
-
-# Create symlink for GitHub backup, overwrite if it exists
-if [ -L "$LOCAL_BACKUP_PATH/$GITHUB_BACKUP_DIR/$BACKUP_FILENAME" ]; then
-    rm "$LOCAL_BACKUP_PATH/$GITHUB_BACKUP_DIR/$BACKUP_FILENAME"
-fi
-ln -s "$LOCAL_BACKUP_PATH/$BACKUP_FILENAME" "$LOCAL_BACKUP_PATH/$GITHUB_BACKUP_DIR/$BACKUP_FILENAME"
 
 # Finished
 echo "Configuration update complete."
