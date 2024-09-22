@@ -27,7 +27,7 @@ class autobackup(plugins.Plugin):
         required_options = ['interval', 'local_backup_path']
         for opt in required_options:
             if opt not in self.options:
-                logging.error(f"AUTO-BACKUP: Required option {opt} is not set.")
+                logging.error(f"AUTO_BACKUP: Required option {opt} is not set.")
                 return
 
         backup_interval = self.options.get('interval', 1) * 3600
@@ -117,29 +117,26 @@ class autobackup(plugins.Plugin):
             shutil.copy(local_backup_path, final_backup_path)
             self.git_setup(github_backup_path, backup_filename)
 
-            # Check if directory exists on GitHub
-            if self.check_github_directory_exists(github_backup_dir):
-                self.run_git_commands(github_backup_path, backup_filename)
-
-    def check_github_directory_exists(self, github_backup_dir):
-        try:
-            check_command = f"git ls-remote --exit-code {self.options['github_repo']} refs/heads/main"
-            result = subprocess.run(check_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            return result.returncode == 0
-        except Exception as e:
-            logging.error(f"AUTO_BACKUP: Error checking GitHub directory: {str(e)}")
-            return False
-
     def git_setup(self, github_backup_path, backup_filename):
         os.makedirs(os.path.join(github_backup_path, '.git', 'info'), exist_ok=True)
-
+        
         with open(os.path.join(github_backup_path, '.git', 'info', 'sparse-checkout'), 'w') as sparse_file:
             sparse_file.write(f"{self.options.get('github_backup_dir', 'Backups')}/*\n")
-
+        
         subprocess.run(f"git config core.sparseCheckout true", cwd=github_backup_path, shell=True)
         subprocess.run(f"git read-tree -mu HEAD", cwd=github_backup_path, shell=True)
 
+        self.run_git_commands(github_backup_path, backup_filename)
+
     def run_git_commands(self, github_backup_path, backup_filename):
+        final_backup_path = os.path.join(github_backup_path, backup_filename)
+
+        # Check if the file already exists
+        if os.path.exists(final_backup_path):
+            logging.debug(f"AUTO_BACKUP: Updating existing backup file: {backup_filename}")
+        else:
+            logging.debug(f"AUTO_BACKUP: Adding new backup file: {backup_filename}")
+
         git_commands = [
             f"cd {github_backup_path} && git add -f {backup_filename}",
             f"cd {github_backup_path} && git commit -m 'Backup on {datetime.now()}'",
@@ -147,18 +144,15 @@ class autobackup(plugins.Plugin):
         ]
 
         for cmd in git_commands:
-            logging.info(f"AUTO_BACKUP: Running Git command: {cmd}")
+            logging.debug(f"AUTO_BACKUP: Running Git command: {cmd}")
             result = subprocess.run(f"sudo -u pi bash -c \"{cmd}\"", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-            logging.info(f"AUTO_BACKUP: Command output: {result.stdout.decode()}")
-            if result.stderr:
-                logging.error(f"AUTO_BACKUP: Command error: {result.stderr.decode()}")
 
             if result.returncode != 0:
                 logging.error(f"AUTO_BACKUP: Git command '{cmd}' failed with exit code {result.returncode}")
+                logging.error(f"AUTO_BACKUP: Command error: {result.stderr.decode()}")
                 return
-            else:
-                logging.info(f"AUTO_BACKUP: Git command '{cmd}' executed successfully.")
+
+        logging.info(f"AUTO_BACKUP: Backup operation completed successfully.")
 
     def handle_remote_backup(self, local_backup_path, backup_filename):
         if 'remote_backup' in self.options:
