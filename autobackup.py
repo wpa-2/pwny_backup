@@ -144,7 +144,12 @@ class autobackup(plugins.Plugin):
     def handle_remote_backup(self, local_backup_path, backup_filename):
         if 'remote_backup' in self.options:
             try:
-                server_address, ssh_key = self.options['remote_backup'].split(',')
+                # Split the remote_backup option correctly
+                remote_config = self.options['remote_backup']
+                if ',' not in remote_config:
+                    raise ValueError("Remote backup configuration must be in the format 'user@host:/path,key_path'")
+
+                server_address, ssh_key = remote_config.split(',')
                 rsync_command = f"rsync -avz -e 'ssh -i {ssh_key} -o StrictHostKeyChecking=no' {local_backup_path} {server_address}/"
                 logging.info(f"AUTO_BACKUP: Sending backup to server using rsync: {rsync_command}")
                 result = subprocess.run(rsync_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -152,5 +157,5 @@ class autobackup(plugins.Plugin):
                     logging.info("AUTO_BACKUP: Backup successfully sent to server using rsync.")
                 else:
                     logging.error(f"AUTO_BACKUP: Failed to send backup to server using rsync. Error: {result.stderr.decode()}")
-            except ValueError:
-                logging.error("AUTO_BACKUP: Incorrect remote backup configuration format.")
+            except ValueError as e:
+                logging.error(f"AUTO_BACKUP: Incorrect remote backup configuration format. {str(e)}")
