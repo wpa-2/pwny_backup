@@ -8,6 +8,7 @@ import socket
 from datetime import datetime
 import threading
 import time
+import shutil
 
 class autobackup(plugins.Plugin):
     __author__ = 'WPA2'
@@ -114,7 +115,9 @@ class autobackup(plugins.Plugin):
                 os.makedirs(github_backup_path)
 
             final_backup_path = os.path.join(github_backup_path, backup_filename)
-            os.replace(local_backup_path, final_backup_path)
+
+            # Copy the backup file instead of moving it
+            shutil.copy(local_backup_path, final_backup_path)
 
             # Setup Git configuration and push backup
             self.git_setup(github_backup_path, backup_filename)
