@@ -101,8 +101,10 @@ class autobackup(plugins.Plugin):
             github_backup_dir = self.options.get('github_backup_dir', 'Backups')
             github_backup_path = os.path.join(self.options['local_backup_path'], github_backup_dir)
 
+            # Ensure the backup path is a Git repository
             if not os.path.exists(github_backup_path):
                 os.makedirs(github_backup_path)
+                subprocess.run(f"git init {github_backup_path}", shell=True)
 
             # Move the backup file to the configured backup directory, overwriting if exists
             final_backup_path = os.path.join(github_backup_path, backup_filename)
@@ -110,9 +112,6 @@ class autobackup(plugins.Plugin):
 
             # Run Git commands
             git_commands = [
-                f"cd {github_backup_path} && git config core.sparseCheckout true",
-                f"echo '{github_backup_dir}/*' > {github_backup_path}/.git/info/sparse-checkout",
-                f"cd {github_backup_path} && git read-tree -mu HEAD",
                 f"cd {github_backup_path} && git add -f {backup_filename}",
                 f"cd {github_backup_path} && git commit -m 'Backup on {datetime.now()}'",
                 f"cd {github_backup_path} && git push --force origin main"
