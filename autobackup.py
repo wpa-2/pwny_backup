@@ -122,21 +122,20 @@ class autobackup(plugins.Plugin):
             # Setup Git configuration and push backup
             self.git_setup(github_backup_path, backup_filename)
 
-   def git_setup(self, github_backup_path, backup_filename):
-    os.makedirs(os.path.join(github_backup_path, '.git', 'info'), exist_ok=True)
-    
-    # Set up sparse checkout
-    with open(os.path.join(github_backup_path, '.git', 'info', 'sparse-checkout'), 'w') as sparse_file:
-        sparse_file.write(f"{self.options.get('github_backup_dir', 'Backups')}/*\n")
-    
-    # Enable sparse checkout
-    subprocess.run(f"git config core.sparseCheckout true", cwd=github_backup_path, shell=True)
+    def git_setup(self, github_backup_path, backup_filename):
+        os.makedirs(os.path.join(github_backup_path, '.git', 'info'), exist_ok=True)
+        
+        # Set up sparse checkout
+        with open(os.path.join(github_backup_path, '.git', 'info', 'sparse-checkout'), 'w') as sparse_file:
+            sparse_file.write(f"{self.options.get('github_backup_dir', 'Backups')}/*\n")
+        
+        # Enable sparse checkout
+        subprocess.run(f"git config core.sparseCheckout true", cwd=github_backup_path, shell=True)
 
-    # Pull only the specified directory
-    subprocess.run(f"git read-tree -mu HEAD", cwd=github_backup_path, shell=True)
+        # Pull only the specified directory
+        subprocess.run(f"git read-tree -mu HEAD", cwd=github_backup_path, shell=True)
 
-    self.run_git_commands(github_backup_path, backup_filename)
-
+        self.run_git_commands(github_backup_path, backup_filename)
 
     def run_git_commands(self, github_backup_path, backup_filename):
         git_commands = [
