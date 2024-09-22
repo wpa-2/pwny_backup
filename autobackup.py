@@ -115,25 +115,23 @@ class autobackup(plugins.Plugin):
                 os.makedirs(github_backup_path)
 
             final_backup_path = os.path.join(github_backup_path, backup_filename)
-
-            # Copy the backup file instead of moving it
             shutil.copy(local_backup_path, final_backup_path)
-
-            # Setup Git configuration and push backup
             self.git_setup(github_backup_path, backup_filename)
 
     def git_setup(self, github_backup_path, backup_filename):
         os.makedirs(os.path.join(github_backup_path, '.git', 'info'), exist_ok=True)
+        sparse_checkout_path = os.path.join(github_backup_path, '.git', 'info', 'sparse-checkout')
+        backup_dir = self.options.get('github_backup_dir', 'Backups')
         
-        # Set up sparse checkout
-        with open(os.path.join(github_backup_path, '.git', 'info', 'sparse-checkout'), 'w') as sparse_file:
-            sparse_file.write(f"{self.options.get('github_backup_dir', 'Backups')}/*\n")
+        with open(sparse_checkout_path, 'w') as sparse_file:
+            sparse_file.write(f"{backup_dir}/*\n")
         
-        # Enable sparse checkout
-        subprocess.run(f"git config core.sparseCheckout true", cwd=github_backup_path, shell=True)
+        logging.info(f"AUTO_BACKUP: Sparse checkout set for {backup_dir}/*")
 
-        # Pull only the specified directory
-        subprocess.run(f"git read-tree -mu HEAD", cwd=github_backup_path, shell=True)
+        subprocess.run(f"git config core.sparseCheckout true", cwd=github_backup_path, shell=True)
+        result = subprocess.run(f"git read-tree -mu HEAD", cwd=github_backup_path, shell=True)
+        if result.returncode != 0:
+            logging.error(f"AUTO_BACKUP: Failed to execute read-tree. Error: {result.stderr.decode()}")
 
         self.run_git_commands(github_backup_path, backup_filename)
 
@@ -154,7 +152,6 @@ class autobackup(plugins.Plugin):
     def handle_remote_backup(self, local_backup_path, backup_filename):
         if 'remote_backup' in self.options:
             try:
-                # Split the remote_backup option correctly
                 remote_config = self.options['remote_backup']
                 if ',' not in remote_config:
                     raise ValueError("Remote backup configuration must be in the format 'user@host:/path,key_path'")
@@ -169,3 +166,4 @@ class autobackup(plugins.Plugin):
                     logging.error(f"AUTO_BACKUP: Failed to send backup to server using rsync. Error: {result.stderr.decode()}")
             except ValueError as e:
                 logging.error(f"AUTO_BACKUP: Incorrect remote backup configuration format. {str(e)}")
+
