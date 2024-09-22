@@ -110,6 +110,9 @@ class autobackup(plugins.Plugin):
 
             # Run Git commands
             git_commands = [
+                f"cd {github_backup_path} && git config core.sparseCheckout true",
+                f"echo '{github_backup_dir}/*' > {github_backup_path}/.git/info/sparse-checkout",
+                f"cd {github_backup_path} && git read-tree -mu HEAD",
                 f"cd {github_backup_path} && git add -f {backup_filename}",
                 f"cd {github_backup_path} && git commit -m 'Backup on {datetime.now()}'",
                 f"cd {github_backup_path} && git push --force origin main"
