@@ -105,6 +105,15 @@ class autobackup(plugins.Plugin):
             if not os.path.exists(github_backup_path):
                 os.makedirs(github_backup_path)
                 subprocess.run(f"git init {github_backup_path}", shell=True)
+                subprocess.run(f"cd {github_backup_path} && git remote add origin {self.options['github_repo']}", shell=True)
+
+            # Configure sparse checkout for the specified directory
+            subprocess.run(f"cd {github_backup_path} && git config core.sparseCheckout true", shell=True)
+            with open(os.path.join(github_backup_path, '.git/info/sparse-checkout'), 'w') as sparse_file:
+                sparse_file.write(f"{github_backup_dir}/*\n")
+
+            # Pull the specified folder from the repository
+            subprocess.run(f"cd {github_backup_path} && git pull origin main", shell=True)
 
             # Move the backup file to the configured backup directory, overwriting if exists
             final_backup_path = os.path.join(github_backup_path, backup_filename)
