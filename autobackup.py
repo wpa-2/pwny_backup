@@ -124,22 +124,16 @@ class autobackup(plugins.Plugin):
 
     def git_setup(self, github_backup_path, backup_filename):
         os.makedirs(os.path.join(github_backup_path, '.git', 'info'), exist_ok=True)
-        sparse_checkout_path = os.path.join(github_backup_path, '.git', 'info', 'sparse-checkout')
-        backup_dir = self.options.get('github_backup_dir', 'Backups')
 
-        # Set up sparse checkout to include only the backup directory
-        with open(sparse_checkout_path, 'w') as sparse_file:
-            sparse_file.write(f"{backup_dir}/\n")  # Include the directory itself
-
-        logging.info(f"AUTO_BACKUP: Sparse checkout set for {backup_dir}/")
+        # Set up sparse checkout
+        with open(os.path.join(github_backup_path, '.git', 'info', 'sparse-checkout'), 'w') as sparse_file:
+            sparse_file.write(f"{self.options.get('github_backup_dir', 'Backups')}/*\n")
 
         # Enable sparse checkout
         subprocess.run(f"git config core.sparseCheckout true", cwd=github_backup_path, shell=True)
 
         # Pull only the specified directory
-        result = subprocess.run(f"git checkout main", cwd=github_backup_path, shell=True)
-        if result.returncode != 0:
-            logging.error(f"AUTO_BACKUP: Failed to execute checkout. Error: {result.stderr.decode()}")
+        subprocess.run(f"git read-tree -mu HEAD", cwd=github_backup_path, shell=True)
 
         self.run_git_commands(github_backup_path, backup_filename)
 
@@ -153,9 +147,16 @@ class autobackup(plugins.Plugin):
         for cmd in git_commands:
             logging.info(f"AUTO_BACKUP: Running Git command: {cmd}")
             result = subprocess.run(f"sudo -u pi bash -c \"{cmd}\"", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            # Log the standard output and error
+            logging.info(f"AUTO_BACKUP: Command output: {result.stdout.decode()}")
+            logging.error(f"AUTO_BACKUP: Command error (if any): {result.stderr.decode()}")
+
             if result.returncode != 0:
                 logging.error(f"AUTO_BACKUP: Git command '{cmd}' failed with exit code {result.returncode}")
                 return
+            else:
+                logging.info(f"AUTO_BACKUP: Git command '{cmd}' executed successfully.")
 
     def handle_remote_backup(self, local_backup_path, backup_filename):
         if 'remote_backup' in self.options:
