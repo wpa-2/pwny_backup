@@ -97,6 +97,19 @@ main.plugins.autobackup.github_backup_dir = \"$GITHUB_BACKUP_DIR\"
 EOL"
 fi
 
+# Prompt for remote backup configuration
+read -p "Would you like to set up remote backups? (y/n): " ENABLE_REMOTE
+if [[ "$ENABLE_REMOTE" == "y" || "$ENABLE_REMOTE" == "Y" ]]; then
+    read -p "Enter the remote server address (e.g., user@hostname:/path/to/backup/): " REMOTE_SERVER
+    read -p "Enter the SSH key path for remote access (default: $SSH_KEY_PATH): " SSH_KEY
+    SSH_KEY=${SSH_KEY:-"$SSH_KEY_PATH"}
+
+    # Update the configuration file for remote backups
+    echo "Configuring remote backup in Pwnagotchi settings..."
+    sudo sed -i "/main.plugins.autobackup.remote_backup/d" $CONFIG_FILE
+    sudo bash -c "echo 'main.plugins.autobackup.remote_backup = \"$REMOTE_SERVER,$SSH_KEY\"' >> $CONFIG_FILE"
+fi
+
 # Download the autobackup.py script
 echo "Downloading autobackup.py script..."
 mkdir -p $PLUGIN_DIR
