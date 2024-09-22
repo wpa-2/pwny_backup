@@ -166,4 +166,3 @@ class autobackup(plugins.Plugin):
                     logging.error(f"AUTO_BACKUP: Failed to send backup to server using rsync. Error: {result.stderr.decode()}")
             except ValueError as e:
                 logging.error(f"AUTO_BACKUP: Incorrect remote backup configuration format. {str(e)}")
-
