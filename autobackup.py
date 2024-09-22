@@ -115,6 +115,7 @@ class autobackup(plugins.Plugin):
 
             final_backup_path = os.path.join(github_backup_path, backup_filename)
             shutil.copy(local_backup_path, final_backup_path)
+            logging.info(f"AUTO_BACKUP: Backup file copied to GitHub directory: {final_backup_path}")
             self.git_setup(github_backup_path, backup_filename)
 
     def git_setup(self, github_backup_path, backup_filename):
@@ -148,6 +149,8 @@ class autobackup(plugins.Plugin):
                 return
             else:
                 logging.info(f"AUTO_BACKUP: Git command '{cmd}' executed successfully.")
+
+        logging.info("AUTO_BACKUP: Backup successfully sent to GitHub.")
 
     def handle_remote_backup(self, local_backup_path, backup_filename):
         if 'remote_backup' in self.options:
