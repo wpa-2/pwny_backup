@@ -97,30 +97,28 @@ class autobackup(plugins.Plugin):
 
             logging.info(f"AUTO_BACKUP: Backup created successfully at {local_backup_path}")
 
-            # GitHub integration: Prepare the backup path
+            # GitHub integration
             github_backup_dir = self.options.get('github_backup_dir', 'Backups')
             github_backup_path = os.path.join(self.options['local_backup_path'], github_backup_dir)
 
-            # Ensure the backup path is a Git repository
             if not os.path.exists(github_backup_path):
                 os.makedirs(github_backup_path)
-                subprocess.run(f"git init {github_backup_path}", shell=True)
-                subprocess.run(f"cd {github_backup_path} && git remote add origin {self.options['github_repo']}", shell=True)
 
-            # Configure sparse checkout for the specified directory
-            subprocess.run(f"cd {github_backup_path} && git config core.sparseCheckout true", shell=True)
-            with open(os.path.join(github_backup_path, '.git/info/sparse-checkout'), 'w') as sparse_file:
-                sparse_file.write(f"{github_backup_dir}/*\n")
-
-            # Pull the specified folder from the repository
-            subprocess.run(f"cd {github_backup_path} && git pull origin main", shell=True)
-
-            # Move the backup file to the configured backup directory, overwriting if exists
             final_backup_path = os.path.join(github_backup_path, backup_filename)
             os.replace(local_backup_path, final_backup_path)
 
+            # Set up sparse checkout
+            sparse_checkout_dir = os.path.join(github_backup_path, '.git', 'info')
+            os.makedirs(sparse_checkout_dir, exist_ok=True)
+            with open(os.path.join(sparse_checkout_dir, 'sparse-checkout'), 'w') as sparse_file:
+                sparse_file.write(f"{github_backup_dir}/*\n")
+
+            subprocess.run(f"git config core.sparseCheckout true", cwd=github_backup_path, shell=True)
+
             # Run Git commands
             git_commands = [
+                f"cd {github_backup_path} && git config core.sparseCheckout true",
+                f"cd {github_backup_path} && git read-tree -mu HEAD",
                 f"cd {github_backup_path} && git add -f {backup_filename}",
                 f"cd {github_backup_path} && git commit -m 'Backup on {datetime.now()}'",
                 f"cd {github_backup_path} && git push --force origin main"
@@ -136,7 +134,7 @@ class autobackup(plugins.Plugin):
                     logging.error(f"AUTO_BACKUP: Git command '{cmd}' failed with exit code {result.returncode}")
                     return
 
-            # Optionally, continue with rsync for remote backup
+            # Remote backup
             if self.options.get('remote_backup'):
                 try:
                     server_address, ssh_key = self.options['remote_backup'].split(',')
