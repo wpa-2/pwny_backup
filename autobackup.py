@@ -23,34 +23,17 @@ class autobackup(plugins.Plugin):
 
     def on_loaded(self):
         logging.info(f"AUTO-BACKUP: Full loaded configuration: {self.options}")
+
         required_options = ['interval', 'local_backup_path']
         for opt in required_options:
             if opt not in self.options:
-                logging.error(f"AUTO_BACKUP: Required option {opt} is not set.")
+                logging.error(f"AUTO-BACKUP: Required option {opt} is not set.")
                 return
-
-        self.configure_git_user()  # Call the method to configure Git user
 
         backup_interval = self.options.get('interval', 1) * 3600
         self.backup_thread = threading.Thread(target=self.schedule_backup, args=(backup_interval,), daemon=True)
         self.backup_thread.start()
         logging.info("AUTO_BACKUP: Backup scheduler started")
-
-    def configure_git_user(self):
-        try:
-            # Check if Git user name and email are set
-            git_user_name = subprocess.check_output(['git', 'config', '--global', 'user.name'], stderr=subprocess.STDOUT).strip()
-            git_user_email = subprocess.check_output(['git', 'config', '--global', 'user.email'], stderr=subprocess.STDOUT).strip()
-
-            if not git_user_name or not git_user_email:
-                logging.error("AUTO_BACKUP: Git user name or email is not set. Please configure them in your installation script.")
-                return
-
-            logging.info(f"AUTO_BACKUP: Git user is set to {git_user_name.decode()} <{git_user_email.decode()}>.")
-        except subprocess.CalledProcessError as e:
-            logging.error(f"AUTO_BACKUP: Git config command failed. Error: {e.output.decode()}")
-        except Exception as e:
-            logging.error(f"AUTO_BACKUP: Unexpected error while configuring Git user. Error: {e}")
 
     def schedule_backup(self, interval):
         while True:
@@ -112,15 +95,13 @@ class autobackup(plugins.Plugin):
 
     def create_backup_archive(self, valid_files, local_backup_path):
         logging.info("AUTO_BACKUP: Backing up ...")
-        tar_command = f"sudo tar --exclude='/etc/pwnagotchi/log/pwnagotchi.log' -czvf {local_backup_path} {' '.join(valid_files)}"
+        tar_command = f"tar --exclude='/etc/pwnagotchi/log/pwnagotchi.log' -czvf {local_backup_path} {' '.join(valid_files)}"
         logging.info(f"AUTO_BACKUP: Running tar command: {tar_command}")
 
         result = subprocess.run(tar_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if result.returncode != 0:
             logging.error(f"AUTO_BACKUP: Failed to create backup. Error: {result.stderr.decode()} Command: {tar_command}")
             return
-
-        subprocess.run(f"sudo chown {os.getuid()}:{os.getgid()} {local_backup_path}", shell=True)
 
         logging.info(f"AUTO_BACKUP: Backup created successfully at {local_backup_path}")
 
@@ -134,22 +115,17 @@ class autobackup(plugins.Plugin):
 
             final_backup_path = os.path.join(github_backup_path, backup_filename)
             shutil.copy(local_backup_path, final_backup_path)
+            logging.info(f"AUTO_BACKUP: Backup file copied to GitHub directory: {final_backup_path}")
             self.git_setup(github_backup_path, backup_filename)
 
     def git_setup(self, github_backup_path, backup_filename):
-        os.makedirs(os.path.join(github_backup_path, '.git'), exist_ok=True)
+        os.makedirs(os.path.join(github_backup_path, '.git', 'info'), exist_ok=True)
 
-        if not os.path.exists(os.path.join(github_backup_path, '.git', 'config')):
-            subprocess.run(f"git init", cwd=github_backup_path, shell=True)
-
-        sparse_checkout_path = os.path.join(github_backup_path, '.git', 'info', 'sparse-checkout')
-        with open(sparse_checkout_path, 'w') as sparse_file:
+        with open(os.path.join(github_backup_path, '.git', 'info', 'sparse-checkout'), 'w') as sparse_file:
             sparse_file.write(f"{self.options.get('github_backup_dir', 'Backups')}/*\n")
 
         subprocess.run(f"git config core.sparseCheckout true", cwd=github_backup_path, shell=True)
-        subprocess.run(f"git remote add origin {self.options['github_repo']}", cwd=github_backup_path, shell=True)
-        subprocess.run(f"git fetch --depth=1 origin main", cwd=github_backup_path, shell=True)
-        subprocess.run(f"git checkout -B main origin/main", cwd=github_backup_path, shell=True)
+        subprocess.run(f"git read-tree -mu HEAD", cwd=github_backup_path, shell=True)
 
         self.run_git_commands(github_backup_path, backup_filename)
 
@@ -163,9 +139,18 @@ class autobackup(plugins.Plugin):
         for cmd in git_commands:
             logging.info(f"AUTO_BACKUP: Running Git command: {cmd}")
             result = subprocess.run(f"sudo -u pi bash -c \"{cmd}\"", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            logging.info(f"AUTO_BACKUP: Command output: {result.stdout.decode()}")
+            if result.stderr:
+                logging.error(f"AUTO_BACKUP: Command error: {result.stderr.decode()}")
+
             if result.returncode != 0:
                 logging.error(f"AUTO_BACKUP: Git command '{cmd}' failed with exit code {result.returncode}")
                 return
+            else:
+                logging.info(f"AUTO_BACKUP: Git command '{cmd}' executed successfully.")
+
+        logging.info("AUTO_BACKUP: Backup successfully sent to GitHub.")
 
     def handle_remote_backup(self, local_backup_path, backup_filename):
         if 'remote_backup' in self.options:
@@ -182,5 +167,9 @@ class autobackup(plugins.Plugin):
                     logging.info("AUTO_BACKUP: Backup successfully sent to server using rsync.")
                 else:
                     logging.error(f"AUTO_BACKUP: Failed to send backup to server using rsync. Error: {result.stderr.decode()}")
+
+                # Confirming backup sent
+                logging.info("AUTO_BACKUP: Backup transfer to server completed.")
+
             except ValueError as e:
                 logging.error(f"AUTO_BACKUP: Incorrect remote backup configuration format. {str(e)}")
