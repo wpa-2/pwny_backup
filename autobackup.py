@@ -24,7 +24,7 @@ class autobackup(plugins.Plugin):
     def on_loaded(self):
         logging.info(f"AUTO-BACKUP: Full loaded configuration: {self.options}")
 
-        required_options = ['interval', 'local_backup_path']
+        required_options = ['interval', 'local_backup_path', 'github_repo', 'github_backup_dir']
         for opt in required_options:
             if opt not in self.options:
                 logging.error(f"AUTO-BACKUP: Required option {opt} is not set.")
@@ -121,8 +121,10 @@ class autobackup(plugins.Plugin):
     def git_setup(self, github_backup_path, backup_filename):
         os.makedirs(os.path.join(github_backup_path, '.git', 'info'), exist_ok=True)
 
+        # Set up sparse checkout only for files with the hostname
+        hostname = socket.gethostname()
         with open(os.path.join(github_backup_path, '.git', 'info', 'sparse-checkout'), 'w') as sparse_file:
-            sparse_file.write(f"{self.options.get('github_backup_dir', 'Backups')}/*\n")
+            sparse_file.write(f"{hostname}-backup.tar.gz\n")
 
         subprocess.run(f"git config core.sparseCheckout true", cwd=github_backup_path, shell=True)
         subprocess.run(f"git read-tree -mu HEAD", cwd=github_backup_path, shell=True)
@@ -168,7 +170,6 @@ class autobackup(plugins.Plugin):
                 else:
                     logging.error(f"AUTO_BACKUP: Failed to send backup to server using rsync. Error: {result.stderr.decode()}")
 
-                # Confirming backup sent
                 logging.info("AUTO_BACKUP: Backup transfer to server completed.")
 
             except ValueError as e:
