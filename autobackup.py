@@ -23,7 +23,6 @@ class autobackup(plugins.Plugin):
 
     def on_loaded(self):
         logging.info(f"AUTO-BACKUP: Full loaded configuration: {self.options}")
-
         required_options = ['interval', 'local_backup_path']
         for opt in required_options:
             if opt not in self.options:
@@ -62,7 +61,6 @@ class autobackup(plugins.Plugin):
             self.create_backup_archive(valid_files, local_backup_path)
             self.handle_github_backup(local_backup_path, backup_filename)
             self.handle_remote_backup(local_backup_path, backup_filename)
-
         except OSError as os_e:
             self.tries += 1
             logging.error(f"AUTO_BACKUP: Error: {os_e}")
@@ -115,30 +113,20 @@ class autobackup(plugins.Plugin):
                 os.makedirs(github_backup_path)
 
             final_backup_path = os.path.join(github_backup_path, backup_filename)
-
-            # Copy the backup file instead of moving it
             shutil.copy(local_backup_path, final_backup_path)
-
-            # Setup Git configuration and push backup
             self.git_setup(github_backup_path, backup_filename)
 
     def git_setup(self, github_backup_path, backup_filename):
-        # Ensure the .git directory exists
         os.makedirs(os.path.join(github_backup_path, '.git'), exist_ok=True)
         
-        # Initialize the git repository if it doesn't exist
         if not os.path.exists(os.path.join(github_backup_path, '.git', 'config')):
             subprocess.run(f"git init", cwd=github_backup_path, shell=True)
 
-        # Set up sparse checkout
         sparse_checkout_path = os.path.join(github_backup_path, '.git', 'info', 'sparse-checkout')
         with open(sparse_checkout_path, 'w') as sparse_file:
             sparse_file.write(f"{self.options.get('github_backup_dir', 'Backups')}/*\n")
         
-        # Enable sparse checkout
         subprocess.run(f"git config core.sparseCheckout true", cwd=github_backup_path, shell=True)
-
-        # Pull only the specified directory
         subprocess.run(f"git remote add origin {self.options['github_repo']}", cwd=github_backup_path, shell=True)
         subprocess.run(f"git fetch --depth=1 origin main", cwd=github_backup_path, shell=True)
         subprocess.run(f"git checkout -B main origin/main", cwd=github_backup_path, shell=True)
@@ -162,7 +150,6 @@ class autobackup(plugins.Plugin):
     def handle_remote_backup(self, local_backup_path, backup_filename):
         if 'remote_backup' in self.options:
             try:
-                # Split the remote_backup option correctly
                 remote_config = self.options['remote_backup']
                 if ',' not in remote_config:
                     raise ValueError("Remote backup configuration must be in the format 'user@host:/path,key_path'")
