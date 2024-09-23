@@ -6,7 +6,7 @@ SSH_KEY_PATH="$USER_HOME/.ssh/pwnagotchi_backup_key"
 CONFIG_FILE="/etc/pwnagotchi/config.toml"
 PLUGIN_DIR="/usr/local/share/pwnagotchi/custom-plugins"
 AUTOBACKUP_SCRIPT="$PLUGIN_DIR/autobackup.py"
-AUTOBACKUP_URL="https://raw.githubusercontent.com/wpa-2/pwny_backup/refs/heads/Testing/autobackup.py"
+AUTOBACKUP_URL="https://raw.githubusercontent.com/wpa-2/pwny_backup/refs/heads/main/autobackup.py"
 
 # Ensure the script is run with sudo
 if [ -z "$SUDO_USER" ]; then
