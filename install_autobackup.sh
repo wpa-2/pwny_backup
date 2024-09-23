@@ -31,14 +31,6 @@ else
     exit 1
 fi
 
-# Prompt for Git user name and email
-read -p "Enter your Git user name: " GIT_USER_NAME
-read -p "Enter your Git user email: " GIT_USER_EMAIL
-
-# Configure Git user name and email
-sudo -u $SUDO_USER git config --global user.name "$GIT_USER_NAME"
-sudo -u $SUDO_USER git config --global user.email "$GIT_USER_EMAIL"
-
 # Prompt for local backup path and set default if empty
 read -p "Enter the local backup path (e.g., /home/pi/backup/): " LOCAL_BACKUP_PATH
 LOCAL_BACKUP_PATH=${LOCAL_BACKUP_PATH:-"$USER_HOME/backup/"}
@@ -63,7 +55,7 @@ read -p "Would you like to set up GitHub backups? (y/n): " ENABLE_GITHUB
 
 if [[ "$ENABLE_GITHUB" == "y" || "$ENABLE_GITHUB" == "Y" ]]; then
     read -p "Enter the GitHub repository URL (e.g., git@github.com:username/repository.git): " GITHUB_REPO
-    read -p "Enter the folder name for this device's backups (e.g., device_hostname): " GITHUB_BACKUP_DIR
+    GITHUB_BACKUP_DIR="Backups"  # Set this to match your central backups folder
 
     # Test GitHub SSH connection
     echo "Testing SSH connection to GitHub..."
@@ -88,11 +80,12 @@ if [[ "$ENABLE_GITHUB" == "y" || "$ENABLE_GITHUB" == "Y" ]]; then
     # Mark the repository as safe for Git
     sudo -u $SUDO_USER git config --global --add safe.directory $LOCAL_BACKUP_PATH
 
-    # Configure sparse checkout for the specified directory
-    echo "Configuring sparse checkout for $GITHUB_BACKUP_DIR..."
-    sudo -u $SUDO_USER bash -c "cd $LOCAL_BACKUP_PATH && git config core.sparseCheckout true && echo '$GITHUB_BACKUP_DIR/*' > .git/info/sparse-checkout"
+    # Configure sparse checkout for files containing the hostname
+    HOSTNAME=$(hostname)
+    echo "Configuring sparse checkout for files with the hostname '$HOSTNAME'..."
+    sudo -u $SUDO_USER bash -c "cd $LOCAL_BACKUP_PATH && git config core.sparseCheckout true && echo '$GITHUB_BACKUP_DIR/$HOSTNAME-backup.tar.gz' > .git/info/sparse-checkout"
 
-    # Pull only the specified folder from the repository
+    # Pull only the hostname-related files from the repository
     sudo -u $SUDO_USER bash -c "cd $LOCAL_BACKUP_PATH && git read-tree -mu HEAD"
 
     # Update the configuration file for GitHub backups
