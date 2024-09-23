@@ -26,11 +26,10 @@ class autobackup(plugins.Plugin):
         required_options = ['interval', 'local_backup_path']
         for opt in required_options:
             if opt not in self.options:
-                logging.error(f"AUTO-BACKUP: Required option {opt} is not set.")
+                logging.error(f"AUTO_BACKUP: Required option {opt} is not set.")
                 return
 
-        # Configure Git user credentials
-        self.configure_git_user()
+        self.configure_git_user()  # Call the method to configure Git user
 
         backup_interval = self.options.get('interval', 1) * 3600
         self.backup_thread = threading.Thread(target=self.schedule_backup, args=(backup_interval,), daemon=True)
@@ -38,11 +37,20 @@ class autobackup(plugins.Plugin):
         logging.info("AUTO_BACKUP: Backup scheduler started")
 
     def configure_git_user(self):
-        git_user_name = input("Enter your Git user name: ")
-        git_user_email = input("Enter your Git user email: ")
+        try:
+            # Check if Git user name and email are set
+            git_user_name = subprocess.check_output(['git', 'config', '--global', 'user.name'], stderr=subprocess.STDOUT).strip()
+            git_user_email = subprocess.check_output(['git', 'config', '--global', 'user.email'], stderr=subprocess.STDOUT).strip()
 
-        subprocess.run(['git', 'config', '--global', 'user.name', git_user_name], check=True)
-        subprocess.run(['git', 'config', '--global', 'user.email', git_user_email], check=True)
+            if not git_user_name or not git_user_email:
+                logging.error("AUTO_BACKUP: Git user name or email is not set. Please configure them in your installation script.")
+                return
+
+            logging.info(f"AUTO_BACKUP: Git user is set to {git_user_name.decode()} <{git_user_email.decode()}>.")
+        except subprocess.CalledProcessError as e:
+            logging.error(f"AUTO_BACKUP: Git config command failed. Error: {e.output.decode()}")
+        except Exception as e:
+            logging.error(f"AUTO_BACKUP: Unexpected error while configuring Git user. Error: {e}")
 
     def schedule_backup(self, interval):
         while True:
@@ -112,8 +120,8 @@ class autobackup(plugins.Plugin):
             logging.error(f"AUTO_BACKUP: Failed to create backup. Error: {result.stderr.decode()} Command: {tar_command}")
             return
 
-        # Change ownership of the backup file
         subprocess.run(f"sudo chown {os.getuid()}:{os.getgid()} {local_backup_path}", shell=True)
+
         logging.info(f"AUTO_BACKUP: Backup created successfully at {local_backup_path}")
 
     def handle_github_backup(self, local_backup_path, backup_filename):
