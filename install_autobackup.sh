@@ -31,6 +31,14 @@ else
     exit 1
 fi
 
+# Prompt for Git user name and email
+read -p "Enter your Git user name: " GIT_USER_NAME
+read -p "Enter your Git user email: " GIT_USER_EMAIL
+
+# Configure Git user name and email
+sudo -u $SUDO_USER git config --global user.name "$GIT_USER_NAME"
+sudo -u $SUDO_USER git config --global user.email "$GIT_USER_EMAIL"
+
 # Prompt for local backup path and set default if empty
 read -p "Enter the local backup path (e.g., /home/pi/backup/): " LOCAL_BACKUP_PATH
 LOCAL_BACKUP_PATH=${LOCAL_BACKUP_PATH:-"$USER_HOME/backup/"}
@@ -55,7 +63,7 @@ read -p "Would you like to set up GitHub backups? (y/n): " ENABLE_GITHUB
 
 if [[ "$ENABLE_GITHUB" == "y" || "$ENABLE_GITHUB" == "Y" ]]; then
     read -p "Enter the GitHub repository URL (e.g., git@github.com:username/repository.git): " GITHUB_REPO
-    read -p "Enter the folder name for this device's backups (e.g., Device1_Backups): " GITHUB_BACKUP_DIR
+    read -p "Enter the folder name for this device's backups (e.g., device_hostname): " GITHUB_BACKUP_DIR
 
     # Test GitHub SSH connection
     echo "Testing SSH connection to GitHub..."

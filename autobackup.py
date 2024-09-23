@@ -29,10 +29,20 @@ class autobackup(plugins.Plugin):
                 logging.error(f"AUTO-BACKUP: Required option {opt} is not set.")
                 return
 
+        # Configure Git user credentials
+        self.configure_git_user()
+
         backup_interval = self.options.get('interval', 1) * 3600
         self.backup_thread = threading.Thread(target=self.schedule_backup, args=(backup_interval,), daemon=True)
         self.backup_thread.start()
         logging.info("AUTO_BACKUP: Backup scheduler started")
+
+    def configure_git_user(self):
+        git_user_name = input("Enter your Git user name: ")
+        git_user_email = input("Enter your Git user email: ")
+
+        subprocess.run(['git', 'config', '--global', 'user.name', git_user_name], check=True)
+        subprocess.run(['git', 'config', '--global', 'user.email', git_user_email], check=True)
 
     def schedule_backup(self, interval):
         while True:
@@ -103,12 +113,7 @@ class autobackup(plugins.Plugin):
             return
 
         # Change ownership of the backup file
-        username = os.getenv("SUDO_USER") or os.getlogin()
-        chown_command = f"sudo chown -R {username}:{username} {local_backup_path}"
-        subprocess_result = subprocess.run(chown_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if subprocess_result.returncode != 0:
-            logging.error(f"AUTO_BACKUP: Failed to change ownership. Error: {subprocess_result.stderr.decode()}")
-
+        subprocess.run(f"sudo chown {os.getuid()}:{os.getgid()} {local_backup_path}", shell=True)
         logging.info(f"AUTO_BACKUP: Backup created successfully at {local_backup_path}")
 
     def handle_github_backup(self, local_backup_path, backup_filename):
@@ -120,14 +125,7 @@ class autobackup(plugins.Plugin):
                 os.makedirs(github_backup_path)
 
             final_backup_path = os.path.join(github_backup_path, backup_filename)
-
-            # Copy the backup file instead of moving it
             shutil.copy(local_backup_path, final_backup_path)
-
-            # Ensure ownership of copied backup
-            username = os.getenv("SUDO_USER") or os.getlogin()
-            subprocess.run(f"sudo chown -R {username}:{username} {final_backup_path}", shell=True)
-
             self.git_setup(github_backup_path, backup_filename)
 
     def git_setup(self, github_backup_path, backup_filename):
@@ -158,7 +156,7 @@ class autobackup(plugins.Plugin):
             logging.info(f"AUTO_BACKUP: Running Git command: {cmd}")
             result = subprocess.run(f"sudo -u pi bash -c \"{cmd}\"", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if result.returncode != 0:
-                logging.error(f"AUTO_BACKUP: Git command '{cmd}' failed with exit code {result.returncode}. Error: {result.stderr.decode()}")
+                logging.error(f"AUTO_BACKUP: Git command '{cmd}' failed with exit code {result.returncode}")
                 return
 
     def handle_remote_backup(self, local_backup_path, backup_filename):
@@ -177,4 +175,4 @@ class autobackup(plugins.Plugin):
                 else:
                     logging.error(f"AUTO_BACKUP: Failed to send backup to server using rsync. Error: {result.stderr.decode()}")
             except ValueError as e:
-                logging.error(f"AUTO_BACKUP: Incorrect remote backup configuration format. {str(e)}")
+                logging.error(f
