@@ -99,7 +99,7 @@ main.plugins.autobackup.remote_backup = "user@LOCALIP:/path/to/folder/,/home/pi/
 main.plugins.autobackup.enabled = true
 main.plugins.autobackup.interval = 1  # Backup every 1 hour
 main.plugins.autobackup.max_tries = 3
-main.plugins.autobackup.local_backup_path = "/home/pi/backup/"`
+main.plugins.autobackup.local_backup_path = "/home/pi/backup/"
 ```
 
 ### Step 6: Verify Installation
