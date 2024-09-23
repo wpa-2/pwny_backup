@@ -55,7 +55,7 @@ read -p "Would you like to set up GitHub backups? (y/n): " ENABLE_GITHUB
 
 if [[ "$ENABLE_GITHUB" == "y" || "$ENABLE_GITHUB" == "Y" ]]; then
     read -p "Enter the GitHub repository URL (e.g., git@github.com:username/repository.git): " GITHUB_REPO
-    read -p "Enter the GitHub directory where backups will be saved (e.g., Backups): " GITHUB_BACKUP_DIR
+    read -p "Enter the folder name for this device's backups (e.g., Device1_Backups): " GITHUB_BACKUP_DIR
 
     # Test GitHub SSH connection
     echo "Testing SSH connection to GitHub..."
@@ -81,7 +81,7 @@ if [[ "$ENABLE_GITHUB" == "y" || "$ENABLE_GITHUB" == "Y" ]]; then
     sudo -u $SUDO_USER git config --global --add safe.directory $LOCAL_BACKUP_PATH
 
     # Configure sparse checkout for the specified directory
-    echo "Configuring sparse checkout..."
+    echo "Configuring sparse checkout for $GITHUB_BACKUP_DIR..."
     sudo -u $SUDO_USER bash -c "cd $LOCAL_BACKUP_PATH && git config core.sparseCheckout true && echo '$GITHUB_BACKUP_DIR/*' > .git/info/sparse-checkout"
 
     # Pull only the specified folder from the repository
