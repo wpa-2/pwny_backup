@@ -96,7 +96,7 @@ class autobackup(plugins.Plugin):
 
     def create_backup_archive(self, valid_files, local_backup_path):
         logging.info("AUTO_BACKUP: Backing up ...")
-        tar_command = tar_command = f"sudo tar --exclude='/etc/pwnagotchi/log/pwnagotchi.log' -czvf {local_backup_path} {' '.join(valid_files)}"
+        tar_command = f"sudo tar --exclude='/etc/pwnagotchi/log/pwnagotchi.log' -czvf {local_backup_path} {' '.join(valid_files)}"
         logging.info(f"AUTO_BACKUP: Running tar command: {tar_command}")
 
         result = subprocess.run(tar_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
