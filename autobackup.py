@@ -121,7 +121,6 @@ class autobackup(plugins.Plugin):
     def git_setup(self, github_backup_path, backup_filename):
         os.makedirs(os.path.join(github_backup_path, '.git', 'info'), exist_ok=True)
 
-        # Set up sparse checkout only for files with the hostname
         hostname = socket.gethostname()
         with open(os.path.join(github_backup_path, '.git', 'info', 'sparse-checkout'), 'w') as sparse_file:
             sparse_file.write(f"{hostname}-backup.tar.gz\n")
@@ -143,11 +142,9 @@ class autobackup(plugins.Plugin):
             result = subprocess.run(f"sudo -u pi bash -c \"{cmd}\"", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             logging.info(f"AUTO_BACKUP: Command output: {result.stdout.decode()}")
-            if result.stderr:
-                logging.error(f"AUTO_BACKUP: Command error: {result.stderr.decode()}")
-
             if result.returncode != 0:
                 logging.error(f"AUTO_BACKUP: Git command '{cmd}' failed with exit code {result.returncode}")
+                logging.error(f"AUTO_BACKUP: Command error: {result.stderr.decode()}")
                 return
             else:
                 logging.info(f"AUTO_BACKUP: Git command '{cmd}' executed successfully.")
