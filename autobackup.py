@@ -102,6 +102,13 @@ class autobackup(plugins.Plugin):
             logging.error(f"AUTO_BACKUP: Failed to create backup. Error: {result.stderr.decode()} Command: {tar_command}")
             return
 
+        # Change ownership of the backup file
+        username = os.getenv("SUDO_USER") or os.getlogin()
+        chown_command = f"sudo chown -R {username}:{username} {local_backup_path}"
+        subprocess_result = subprocess.run(chown_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if subprocess_result.returncode != 0:
+            logging.error(f"AUTO_BACKUP: Failed to change ownership. Error: {subprocess_result.stderr.decode()}")
+
         logging.info(f"AUTO_BACKUP: Backup created successfully at {local_backup_path}")
 
     def handle_github_backup(self, local_backup_path, backup_filename):
@@ -113,19 +120,26 @@ class autobackup(plugins.Plugin):
                 os.makedirs(github_backup_path)
 
             final_backup_path = os.path.join(github_backup_path, backup_filename)
+
+            # Copy the backup file instead of moving it
             shutil.copy(local_backup_path, final_backup_path)
+
+            # Ensure ownership of copied backup
+            username = os.getenv("SUDO_USER") or os.getlogin()
+            subprocess.run(f"sudo chown -R {username}:{username} {final_backup_path}", shell=True)
+
             self.git_setup(github_backup_path, backup_filename)
 
     def git_setup(self, github_backup_path, backup_filename):
         os.makedirs(os.path.join(github_backup_path, '.git'), exist_ok=True)
-        
+
         if not os.path.exists(os.path.join(github_backup_path, '.git', 'config')):
             subprocess.run(f"git init", cwd=github_backup_path, shell=True)
 
         sparse_checkout_path = os.path.join(github_backup_path, '.git', 'info', 'sparse-checkout')
         with open(sparse_checkout_path, 'w') as sparse_file:
             sparse_file.write(f"{self.options.get('github_backup_dir', 'Backups')}/*\n")
-        
+
         subprocess.run(f"git config core.sparseCheckout true", cwd=github_backup_path, shell=True)
         subprocess.run(f"git remote add origin {self.options['github_repo']}", cwd=github_backup_path, shell=True)
         subprocess.run(f"git fetch --depth=1 origin main", cwd=github_backup_path, shell=True)
@@ -144,7 +158,7 @@ class autobackup(plugins.Plugin):
             logging.info(f"AUTO_BACKUP: Running Git command: {cmd}")
             result = subprocess.run(f"sudo -u pi bash -c \"{cmd}\"", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if result.returncode != 0:
-                logging.error(f"AUTO_BACKUP: Git command '{cmd}' failed with exit code {result.returncode}")
+                logging.error(f"AUTO_BACKUP: Git command '{cmd}' failed with exit code {result.returncode}. Error: {result.stderr.decode()}")
                 return
 
     def handle_remote_backup(self, local_backup_path, backup_filename):
