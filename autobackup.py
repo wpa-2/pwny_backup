@@ -131,10 +131,13 @@ class autobackup(plugins.Plugin):
         self.run_git_commands(github_backup_path, backup_filename)
 
     def run_git_commands(self, github_backup_path, backup_filename):
+        # Get the SSH key for GitHub from the configuration
+        github_ssh_key = self.options.get('github_ssh_key', '/home/pi/.ssh/pwnagotchi_backup_key')  # Default to pwnagotchi_backup_key if not set
+        
         git_commands = [
             f"cd {github_backup_path} && git add -f {backup_filename}",
             f"cd {github_backup_path} && git commit -m 'Backup on {datetime.now()}'",
-            f"cd {github_backup_path} && git push --force origin main"
+            f"cd {github_backup_path} && GIT_SSH_COMMAND='ssh -i {github_ssh_key}' git push --force origin main"
         ]
 
         for cmd in git_commands:
