@@ -80,6 +80,13 @@ if [[ "$ENABLE_GITHUB" == "y" || "$ENABLE_GITHUB" == "Y" ]]; then
     # Mark the repository as safe for Git
     sudo -u $SUDO_USER git config --global --add safe.directory $LOCAL_BACKUP_PATH
 
+    # Prompt for Git user details
+    read -p "Enter your Git user name: " GIT_USER_NAME
+    read -p "Enter your Git user email: " GIT_USER_EMAIL
+    
+    # Set Git user details for the repository
+    sudo -u $SUDO_USER bash -c "cd $LOCAL_BACKUP_PATH && git config user.name '$GIT_USER_NAME' && git config user.email '$GIT_USER_EMAIL'"
+
     # Configure sparse checkout for files containing the hostname
     HOSTNAME=$(hostname)
     echo "Configuring sparse checkout for files with the hostname '$HOSTNAME'..."
