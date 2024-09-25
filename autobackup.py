@@ -12,7 +12,7 @@ import shutil
 
 class autobackup(plugins.Plugin):
     __author__ = 'WPA2'
-    __version__ = '2.1.0'
+    __version__ = '2.2.0'
     __license__ = 'GPL3'
     __description__ = 'This plugin backs up files using the hostname for the backup filename and supports local and remote backups using rsync.'
 
@@ -24,7 +24,7 @@ class autobackup(plugins.Plugin):
     def on_loaded(self):
         logging.info(f"AUTO-BACKUP: Full loaded configuration: {self.options}")
 
-        required_options = ['interval', 'local_backup_path', 'github_repo', 'github_backup_dir']
+        required_options = ['interval', 'local_backup_path', 'github_repo', 'github_backup_dir', 'github_branch', 'github_ssh_key']
         for opt in required_options:
             if opt not in self.options:
                 logging.error(f"AUTO-BACKUP: Required option {opt} is not set.")
@@ -122,22 +122,27 @@ class autobackup(plugins.Plugin):
         os.makedirs(os.path.join(github_backup_path, '.git', 'info'), exist_ok=True)
 
         hostname = socket.gethostname()
+        branch_name = self.options.get('github_branch', hostname)  # Use the hostname as the default branch
+
+        # Ensure we are working on the correct branch
+        subprocess.run(f"git checkout -b {branch_name} || git checkout {branch_name}", cwd=github_backup_path, shell=True)
+
         with open(os.path.join(github_backup_path, '.git', 'info', 'sparse-checkout'), 'w') as sparse_file:
             sparse_file.write(f"{hostname}-backup.tar.gz\n")
 
         subprocess.run(f"git config core.sparseCheckout true", cwd=github_backup_path, shell=True)
         subprocess.run(f"git read-tree -mu HEAD", cwd=github_backup_path, shell=True)
 
-        self.run_git_commands(github_backup_path, backup_filename)
+        self.run_git_commands(github_backup_path, backup_filename, branch_name)
 
-    def run_git_commands(self, github_backup_path, backup_filename):
+    def run_git_commands(self, github_backup_path, backup_filename, branch_name):
         # Get the SSH key for GitHub from the configuration
         github_ssh_key = self.options.get('github_ssh_key', '/home/pi/.ssh/pwnagotchi_backup_key')  # Default to pwnagotchi_backup_key if not set
         
         git_commands = [
             f"cd {github_backup_path} && git add -f {backup_filename}",
             f"cd {github_backup_path} && git commit -m 'Backup on {datetime.now()}'",
-            f"cd {github_backup_path} && GIT_SSH_COMMAND='ssh -i {github_ssh_key}' git push --force origin main"
+            f"cd {github_backup_path} && GIT_SSH_COMMAND='ssh -i {github_ssh_key}' git push origin {branch_name}"
         ]
 
         for cmd in git_commands:
